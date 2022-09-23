@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:twitter/view/screen.dart';
+import 'package:twitter/view/start_up/login_page.dart';
 import 'package:twitter/view/time_line/time_line_page.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
+// Screenを読み込む
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -15,6 +18,6 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.blue,
         ),
-        home: TimeLinePage());
+        home: LoginPage());
   }
 }
