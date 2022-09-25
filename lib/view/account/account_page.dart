@@ -1,7 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:twitter/model/account.dart';
 import 'package:twitter/model/post.dart';
+import 'package:twitter/utils/authentication.dart';
+import 'package:twitter/utils/firestore/posts.dart';
+import 'package:twitter/utils/firestore/users.dart';
+import 'package:twitter/view/account/edit_account_page.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({Key? key}) : super(key: key);
@@ -11,28 +16,8 @@ class AccountPage extends StatefulWidget {
 }
 
 class _AccountPageState extends State<AccountPage> {
-  Account myAccount = Account(
-      id: '1',
-      name: 'Flutterラボ',
-      selfIntroduction: 'こんばんは',
-      userId: 'flutter_labo',
-      imagePath:
-          'https://cdn-ak.f.st-hatena.com/images/fotolife/h/hikiniku0115/20190806/20190806000644.png',
-      createdTime: DateTime.now(),
-      updatedTime: DateTime.now());
+  Account myAccount = Authentication.myAccount!;
 
-  List<Post> postList = [
-    Post(
-        id: '1',
-        content: '初めまして',
-        postAccountId: 'id',
-        createdTime: DateTime.now()),
-    Post(
-        id: '2',
-        content: '初めまして2',
-        postAccountId: 'id',
-        createdTime: DateTime.now()),
-  ];
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,7 +61,17 @@ class _AccountPageState extends State<AccountPage> {
                           ],
                         ),
                         OutlinedButton(
-                          onPressed: () {},
+                          onPressed: () async {
+                            var result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => EditAccountPage()));
+                            if (result == true) {
+                              setState(() {
+                                myAccount = Authentication.myAccount!;
+                              });
+                            }
+                          },
                           child: Text('編集'),
                         )
                       ],
@@ -97,70 +92,106 @@ class _AccountPageState extends State<AccountPage> {
                         color: Colors.blue, fontWeight: FontWeight.bold)),
               ),
               Expanded(
-                  child: ListView.builder(
-                      // スクロールできなくする
-                      physics: NeverScrollableScrollPhysics(),
-                      itemCount: postList.length,
-                      itemBuilder: (context, index) {
-                        return Container(
-                          decoration: BoxDecoration(
-                              border: index == 0
-                                  ? Border(
-                                      top: BorderSide(
-                                          color: Colors.grey, width: 0),
-                                      bottom: BorderSide(
-                                          color: Colors.grey, width: 0),
-                                    )
-                                  : Border(
-                                      bottom: BorderSide(
-                                          color: Colors.grey, width: 0),
-                                    )),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 15),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 22,
-                                foregroundImage:
-                                    NetworkImage(myAccount.imagePath),
-                              ),
-                              Expanded(
-                                child: Container(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
+                  child: StreamBuilder<QuerySnapshot>(
+                      stream: UserFirestore.users
+                          .doc(myAccount.id)
+                          .collection('my_posts')
+                          .orderBy('created_time', descending: true)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          List<String> myPostIds = List.generate(
+                              snapshot.data!.docs.length, (index) {
+                            return snapshot.data!.docs[index].id;
+                          });
+                          return FutureBuilder<List<Post>?>(
+                              future: PostFirestore.getPostsFromIds(myPostIds),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData) {
+                                  return ListView.builder(
+                                      // スクロールできなくする
+                                      physics: NeverScrollableScrollPhysics(),
+                                      itemCount: snapshot.data!.length,
+                                      itemBuilder: (context, index) {
+                                        Post post = snapshot.data![index];
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                              border: index == 0
+                                                  ? Border(
+                                                      top: BorderSide(
+                                                          color: Colors.grey,
+                                                          width: 0),
+                                                      bottom: BorderSide(
+                                                          color: Colors.grey,
+                                                          width: 0),
+                                                    )
+                                                  : Border(
+                                                      bottom: BorderSide(
+                                                          color: Colors.grey,
+                                                          width: 0),
+                                                    )),
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 15),
+                                          child: Row(
                                             children: [
-                                              Text(
-                                                myAccount.name,
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
+                                              CircleAvatar(
+                                                radius: 22,
+                                                foregroundImage: NetworkImage(
+                                                    myAccount.imagePath),
                                               ),
-                                              Text(
-                                                myAccount.userId,
-                                                style: TextStyle(
-                                                    color: Colors.grey),
-                                              ),
+                                              Expanded(
+                                                child: Container(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceBetween,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              Text(
+                                                                myAccount.name,
+                                                                style: TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold),
+                                                              ),
+                                                              Text(
+                                                                myAccount
+                                                                    .userId,
+                                                                style: TextStyle(
+                                                                    color: Colors
+                                                                        .grey),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          Text(DateFormat(
+                                                                  'M/d/yy')
+                                                              .format(post
+                                                                  .createdTime!
+                                                                  .toDate()))
+                                                        ],
+                                                      ),
+                                                      Text(post.content)
+                                                    ],
+                                                  ),
+                                                ),
+                                              )
                                             ],
                                           ),
-                                          Text(DateFormat('M/d/yy').format(
-                                              postList[index].createdTime!))
-                                        ],
-                                      ),
-                                      Text(postList[index].content)
-                                    ],
-                                  ),
-                                ),
-                              )
-                            ],
-                          ),
-                        );
+                                        );
+                                      });
+                                } else {
+                                  return Container();
+                                }
+                              });
+                        } else {
+                          return Container();
+                        }
                       }))
             ],
           ),
